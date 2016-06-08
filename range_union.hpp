@@ -108,11 +108,8 @@ namespace tyti
 
             bool operator==(const iterator& rhs) const { return equal(rhs); }
             bool operator!=(const iterator& rhs) const { return !equal(rhs); }
-            typename range_type::iterator& operator*() { return m_current; }
             const typename range_type::iterator& operator*() const { return m_current; }
         };
-
-
 
         range_union& operator+=(const range_type& rhs)
         {
@@ -155,28 +152,25 @@ namespace tyti
             return *this;
         }
 
-private:
-    template <class T, class K> struct minus : std::binary_function <T, K, T> {
-        T operator() (const T& x, const K& y) const { return x - y; }
-    };
-
-    template <class T, class K> struct plus : std::binary_function <T, K, T> {
-        T operator() (const T& x, const K& y) const { return x + y; }
-    };
-
 public:
-        range_union& operator-=(const range_union& rhs)
+        const range_union& operator-=(const range_union& rhs)
         {
-            return *this = std::accumulate(rhs.ranges_begin(), rhs.ranges_end(), *this, minus<range_union, range_type>()); // todo: std::ref
+            for (const_ranges_iterator it = rhs.ranges_begin(); it != rhs.ranges_end(); ++it)
+                *this -= *it;
+            return *this;
         }
 
-        range_union& operator+=(const range_union& rhs)
+        const range_union& operator+=(const range_union& rhs)
         {
-            return *this = std::accumulate(rhs.ranges_begin(), rhs.ranges_end(), *this, plus<range_union, range_type>()); // todo: std::ref
+            for (const_ranges_iterator it = rhs.ranges_begin(); it != rhs.ranges_end(); ++it)
+                *this += *it;
+            return *this;
         }
 
         iterator begin() const { return iterator(*this, ranges_begin()); }
         iterator end() const { return iterator(*this, ranges_end()); }
+        iterator cbegin() const { return const_iterator(*this, ranges_begin()); }
+        iterator cend() const { return const_iterator(*this, ranges_end()); }
 
         const_ranges_iterator ranges_begin() const { return m_ranges.begin(); }
         const_ranges_iterator ranges_end() const { return m_ranges.end(); }
