@@ -1,11 +1,11 @@
-#Introduction
+##Introduction
 Imagine, you have several ranges and you want to iterate over each element defined by the rangers just one time.
 The ranges may be not disjunct.
 
 For this problem, the class 'range_union' is provided.
 You can add non disjunct ranges to the union and request iterators which will iterate over all elements.
 
-#Complexity
+##Complexity
 Inserting and deleting new ranges into range_union is very cost efficient.
 Inserting costs at max one upper and one lower bound which means, only 'O(log2(n))' where n is the number of ranges inside the union.
 Delete operations performs one 'equal_range' operation which is again only 'O(log2(n))' where n is the number of ranges inside the union.
@@ -17,11 +17,11 @@ Suggested containers are 'std::vector' and 'std::list'.
 When you have more insert/delete operations, 'std::list' is your choice, but the iteration over all the elements costs more.
 The container type 'std::vector' provides faster iteration, but the performance of the insert/delete operation is slower than 'std::list' container provides.
 
-#Dependencies
+##Dependencies
 - C++98
 
 
-#Example
+##Example
 More examples can be found in the test files.
 
 ```C++
@@ -78,3 +78,7 @@ int main()
 }
 
 ```
+
+## License
+
+[MIT License](./LICENSE) © Matthias Möller. Made with ♥ in Germany.
