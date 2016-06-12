@@ -1,10 +1,13 @@
 #define BOOST_TEST_MODULE RANGE_UNION_TEST_MODULE
 #include <boost/test/included/unit_test.hpp>
-#include <range_union.hpp>
 #include <numeric>
 #include <queue>
 
 #include <boost/range/iterator_range.hpp>
+
+#include <boost/mpl/list.hpp>
+
+#include "../range_union.hpp"
 
 using namespace tyti;
 
@@ -47,11 +50,11 @@ void check_values(const range_union< R >& iu, const std::vector<int>& vals)
     }
         
 }
-template< template<typename> class rangeT, typename iteratorT>
+template< class rangeT>
 void check_std_operators()
 {
-    typedef iteratorT iterator_class;
-    typedef rangeT<iterator_class> range;
+    typedef typename  rangeT::iterator iterator_class;
+    typedef rangeT range;
     range_union< range > iu;
     BOOST_REQUIRE(iu.empty());
 
@@ -127,10 +130,25 @@ void check_std_operators()
     check_values(iu, compare_container);
 }
 
-BOOST_AUTO_TEST_CASE(range_union_operators)
+typedef boost::mpl::list<
+    pair_range<int>,
+    pair_range<char>,
+    pair_range<unsigned int>,
+    //pair_range<float>,
+    pair_range<std::vector<int>::iterator>,
+    boost::iterator_range<std::vector<int>::iterator>
+> test_types;
+
+BOOST_AUTO_TEST_CASE_TEMPLATE(range_union_operators, T, test_types)
 {
-    check_std_operators<pair_range, int>();
-    check_std_operators<pair_range, float>();
-    check_std_operators<pair_range, std::vector<int>::iterator>();
-    check_std_operators<boost::iterator_range, std::vector<int>::iterator>();
+    check_std_operators<T>();
 }
+
+//BOOST_AUTO_TEST_CASE(range_union_operators)
+//{
+//    check_std_operators<
+//    check_std_operators<pair_range, int>();
+//    check_std_operators<pair_range, float>();
+//    check_std_operators<pair_range, std::vector<int>::iterator>();
+//    check_std_operators<boost::iterator_range, std::vector<int>::iterator>();
+//}

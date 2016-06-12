@@ -16,9 +16,8 @@ find_package(Boost REQUIRED)
 set(SSU_Sources "range_union_test.cpp")
 
 include_directories(${Boost_INCLUDE_DIR})
-include_directories("../")
 
-add_executable(${EXECUTABLE_NAME} ${SSU_Sources})
+add_executable(${EXECUTABLE_NAME} "../range_union.hpp" ${SSU_Sources})
 
 add_definitions("-DSOURCE_DIR=\"${CMAKE_SOURCE_DIR}\"")
 
