@@ -34,7 +34,9 @@ tyti::range_union<T,C> operator-(tyti::range_union<T,C> lhs, const typename T& r
 
 namespace tyti
 {
-
+    /** \brief Simple Example of a range
+     shows the requirement of a range
+     */
     template<typename T>
     class pair_range : public std::pair<T, T>
     {
@@ -46,9 +48,33 @@ namespace tyti
         const T& end() const { return second; }
     };
 
+    /** \brief range_union class
+    @param RangeT range type. Requirement are shown in pair_range
+    @param ContainerT container which will be used. Use vector, if you want max performance for iteration. 
+        Use list, if you want max performance when you insert/delete a lot(+=/-= operators).
+    */
     template<typename RangeT, class ContainerT = std::vector<RangeT, std::allocator<RangeT> > >
     class range_union
     {
+        ///////////////////////////////////////////////////////////////////////////////
+        // common types
+        ///////////////////////////////////////////////////////////////////////////////
+    public:
+        typedef RangeT range_type;
+        typedef ContainerT container_type;
+        typedef typename container_type::iterator ranges_iterator;
+        typedef typename container_type::const_iterator const_ranges_iterator;
+
+
+    private:
+        ///////////////////////////////////////////////////////////////////////////////
+        // members
+        ///////////////////////////////////////////////////////////////////////////////
+        container_type m_ranges;
+
+        ///////////////////////////////////////////////////////////////////////////////
+        // private details
+        ///////////////////////////////////////////////////////////////////////////////
         struct less_or_disjunct
         {
             bool operator()(const RangeT& lhs, const RangeT& rhs)
@@ -56,20 +82,8 @@ namespace tyti
                 return lhs.end() < rhs.begin();
             }
         };
-        //typedef std::vector<RangeT> container_type;
-        typedef ContainerT container_type;
-        container_type m_ranges;
-
-
-    public:
-        typedef RangeT range_type;
-        typedef typename container_type::iterator ranges_iterator;
-        typedef typename container_type::const_iterator const_ranges_iterator;
-
-
-        ///////////////////////////////////////////////////////////////////////////////
+        
         // iterator
-        ///////////////////////////////////////////////////////////////////////////////
         template<typename tagT>
         class base_iteratorT : public base_iteratorT<std::bidirectional_iterator_tag>
         {
@@ -77,7 +91,7 @@ namespace tyti
             base_iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
                 base_iteratorT<std::bidirectional_iterator_tag>(interval, currentRange)
             {}
-            base_iteratorT(const base_iteratorT<std::bidirectional_iterator_tag>& it):
+            base_iteratorT(const base_iteratorT<std::bidirectional_iterator_tag>& it) :
                 base_iteratorT<std::bidirectional_iterator_tag>(it)
             {}
         };
@@ -170,13 +184,13 @@ namespace tyti
         public:
             iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
                 base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(interval, currentRange) {}
-            iteratorT(const base_iteratorT<typename std::iterator_traits<iter>::iterator_category>& it) : 
+            iteratorT(const base_iteratorT<typename std::iterator_traits<iter>::iterator_category>& it) :
                 base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(it) {}
         };
-        
+
         //for plain types like int, unsigned int, etc.
         template<typename iter>
-        class iteratorT<iter,true> : public std::iterator<std::bidirectional_iterator_tag, iter>, public base_iteratorT<std::bidirectional_iterator_tag>
+        class iteratorT<iter, true> : public std::iterator<std::bidirectional_iterator_tag, iter>, public base_iteratorT<std::bidirectional_iterator_tag>
         {
         public:
             iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
@@ -185,16 +199,22 @@ namespace tyti
                 base_iteratorT<std::bidirectional_iterator_tag>(it) {}
         };
 
+
+    public:
+        ///////////////////////////////////////////////////////////////////////////////
+        // public interface
+        ///////////////////////////////////////////////////////////////////////////////
+
         typedef iteratorT<
             typename range_type::iterator, 
             std::numeric_limits<typename range_type::iterator>::is_specialized
-        > iterator;
+        > iterator;        
 
-
-        ///////////////////////////////////////////////////////////////////////////////
-        // operators
-        ///////////////////////////////////////////////////////////////////////////////
-
+        /** adds a given range to the current union
+        * e.g.: 
+        * [(0,5)] += (4,10) -> [(0,10)]
+        * [(0,5)] += (9,10) -> [(0,5),(9,10)]
+        */
         range_union& operator+=(const range_type& rhs)
         {
             ranges_iterator lw_it = std::lower_bound(m_ranges.begin(), m_ranges.end(), rhs, less_or_disjunct());
@@ -213,6 +233,11 @@ namespace tyti
             return *this;
         }
 
+        /** removes a given range to the current union
+        * e.g.:
+        * [(0,10)] -= (4,10) -> [(0,4)]
+        * [(0,10)] -= (7,8) -> [(0,7),(8,10)]
+        */
         range_union& operator-=(const range_type& rhs)
         {
             std::pair<ranges_iterator, ranges_iterator> contiguous = std::equal_range(m_ranges.begin(), m_ranges.end(), rhs, less_or_disjunct());
@@ -235,8 +260,9 @@ namespace tyti
             }
             return *this;
         }
-
-public:
+        /**
+        * remove all ranges from the given range_union
+        */
         const range_union& operator-=(const range_union& rhs)
         {
             for (const_ranges_iterator it = rhs.ranges_begin(); it != rhs.ranges_end(); ++it)
@@ -244,6 +270,9 @@ public:
             return *this;
         }
 
+        /**
+        * add all ranges from the given range_union
+        */
         const range_union& operator+=(const range_union& rhs)
         {
             for (const_ranges_iterator it = rhs.ranges_begin(); it != rhs.ranges_end(); ++it)
@@ -251,11 +280,17 @@ public:
             return *this;
         }
 
+        /**
+        * get the beginning of the iterator. Iterates over all elements speicified by the ranges
+        */
         iterator begin() const { return iterator(*this, ranges_begin()); }
         iterator end() const { return iterator(*this, ranges_end()); }
         iterator cbegin() const { return const_iterator(*this, ranges_begin()); }
         iterator cend() const { return const_iterator(*this, ranges_end()); }
 
+        /**
+        * get the beginning of the range_iterator. Iterates over all ranges inside the union
+        */
         const_ranges_iterator ranges_begin() const { return m_ranges.begin(); }
         const_ranges_iterator ranges_end() const { return m_ranges.end(); }
         range_type ranges_front() const { return *m_ranges.begin(); }
@@ -264,8 +299,17 @@ public:
         size_t size() { return m_ranges.size(); }
         bool empty() { return m_ranges.empty(); }
 
-        // return true, if the given range is disjunct with all the ranges saved in the union. otherwise false
-        bool disjunct(const range_type& r) { std::pair<ranges_iterator, ranges_iterator> ov = m_ranges.equal_range(rhs); return ov.first == ov.second; }
+        /** 
+        * return true, if the given range is disjunct with all the ranges saved in the union. otherwise false
+        */
+        bool disjunct(const range_type& rhs) 
+        { 
+            std::pair<ranges_iterator, ranges_iterator> ov = std::equal_range(m_ranges.begin(), m_ranges.end(), rhs, less_or_disjunct()); 
+            if (ov.first == ov.second)
+                return true;
+            return ov.first->begin() >= rhs.end();
+            
+        }
 
     };
 }

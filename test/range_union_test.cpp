@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(range_union_operators, T, test_types)
     check_std_operators<T>();
 }
 
-BOOST_AUTO_TEST_CASE(IteratorTest)
+BOOST_AUTO_TEST_CASE(Disjunct)
 {
     using range = pair_range<int>;
     range_union< range > iu;
@@ -159,9 +159,20 @@ BOOST_AUTO_TEST_CASE(IteratorTest)
     iu += range(0, 17);
     iu += range(20, 25);
 
+    BOOST_CHECK(iu.disjunct(range(18, 20)));
 
-    std::vector<int> numbers(25);
-    std::iota(numbers.begin(), numbers.end(), 0);
+    BOOST_CHECK(!iu.disjunct(range(17, 20)));
+    BOOST_CHECK(!iu.disjunct(range(18, 21)));
+
+}
+
+BOOST_AUTO_TEST_CASE(IteratorTest)
+{
+    using range = pair_range<int>;
+    range_union< range > iu;
+    BOOST_REQUIRE(iu.empty());
+    iu += range(0, 17);
+    iu += range(20, 25);
 
     auto it = iu.begin();
     auto it2 = it;
