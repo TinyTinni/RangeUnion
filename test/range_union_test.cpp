@@ -35,12 +35,19 @@ void check_values(const range_union< R >& iu, const std::vector<int>& vals)
     //c++03
     std::vector<int>::const_iterator checkIterC03 = vals.begin();
     typename range_union< R >::iterator endIter = iu.end();
+
+    // check increment
     for (typename range_union< R >::iterator iter = iu.begin(); iter != endIter; ++iter)
         BOOST_REQUIRE_EQUAL(if_not_pod::deref(*iter), *(checkIterC03++));
-    
-    BOOST_REQUIRE_MESSAGE(checkIterC03 == vals.end(), 
-        std::string("Too less values in interval. Has to be more.\nCount of missing values: ") 
+
+    BOOST_REQUIRE_MESSAGE(checkIterC03 == vals.end(),
+        std::string("Not enough values in interval. Has to be more.\nCount of missing values: ")
         + std::to_string(std::distance(checkIterC03, vals.cend())));
+
+    // check decrement
+    --checkIterC03;
+    for (typename range_union< R >::iterator iter = --iu.end(); iter != endIter; --iter)
+        BOOST_REQUIRE_EQUAL(if_not_pod::deref(*iter), *(checkIterC03--));   
     
     //c++11
     auto checkIterC11 = std::cbegin(vals);
@@ -134,7 +141,7 @@ typedef boost::mpl::list<
     pair_range<int>,
     pair_range<char>,
     pair_range<unsigned int>,
-    //pair_range<float>,
+    //pair_range<float>, //creates tons of warning, you should fix that
     pair_range<std::vector<int>::iterator>,
     boost::iterator_range<std::vector<int>::iterator>
 > test_types;
@@ -144,11 +151,36 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(range_union_operators, T, test_types)
     check_std_operators<T>();
 }
 
-//BOOST_AUTO_TEST_CASE(range_union_operators)
-//{
-//    check_std_operators<
-//    check_std_operators<pair_range, int>();
-//    check_std_operators<pair_range, float>();
-//    check_std_operators<pair_range, std::vector<int>::iterator>();
-//    check_std_operators<boost::iterator_range, std::vector<int>::iterator>();
-//}
+BOOST_AUTO_TEST_CASE(IteratorTest)
+{
+    using range = pair_range<int>;
+    range_union< range > iu;
+    BOOST_REQUIRE(iu.empty());
+    iu += range(0, 17);
+    iu += range(20, 25);
+
+
+    std::vector<int> numbers(25);
+    std::iota(numbers.begin(), numbers.end(), 0);
+
+    auto it = iu.begin();
+    auto it2 = it;
+    while (it != iu.end() || it2 != iu.end())
+    {
+        BOOST_REQUIRE_EQUAL(*it, *it2);
+        ++it;
+        it2++;
+    }
+    BOOST_REQUIRE(it == it2);//equals numbers.end()
+
+    --it;
+    it2--;
+    BOOST_REQUIRE(*it == *it2);
+    while (it != iu.end() || it2 != iu.end())
+    {
+        BOOST_REQUIRE_EQUAL(*it, *it2);
+        ++it;
+        it2++;
+    }
+    BOOST_REQUIRE(it == it2);//equals numbers.end()
+}

@@ -6,9 +6,9 @@
 #include <numeric>
 #include <algorithm>
 #include <functional>
+#include <numeric>
 
 #include <vector>
-#include <list>
 
 
 //#include <boost/range/iterator_range.hpp> // compatible with
@@ -49,9 +49,8 @@ namespace tyti
     template<typename RangeT, class ContainerT = std::vector<RangeT, std::allocator<RangeT> > >
     class range_union
     {
-        class less_or_disjunct
+        struct less_or_disjunct
         {
-        public:
             bool operator()(const RangeT& lhs, const RangeT& rhs)
             {
                 return lhs.end() < rhs.begin();
@@ -67,37 +66,49 @@ namespace tyti
         typedef typename container_type::iterator ranges_iterator;
         typedef typename container_type::const_iterator const_ranges_iterator;
 
-        class iterator : public std::iterator<std::forward_iterator_tag, typename range_type::iterator>
+
+        ///////////////////////////////////////////////////////////////////////////////
+        // iterator
+        ///////////////////////////////////////////////////////////////////////////////
+        template<typename tagT>
+        class base_iteratorT : public base_iteratorT<std::bidirectional_iterator_tag>
         {
+        public:
+            base_iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
+                base_iteratorT<std::bidirectional_iterator_tag>(interval, currentRange)
+            {}
+            base_iteratorT(const base_iteratorT<std::bidirectional_iterator_tag>& it):
+                base_iteratorT<std::bidirectional_iterator_tag>(it)
+            {}
+        };
+
+        template<>
+        class base_iteratorT<std::forward_iterator_tag>
+        {
+        protected:
             const range_union<range_type>& m_interval;
             const_ranges_iterator m_currentRange;
             typename range_type::iterator m_current;
 
-            bool equal(const iterator& rhs) const { return (/*(&m_interval == &rhs.m_interval) && (m_currentRange == rhs.m_currentRange) &&*/ (m_current == rhs.m_current)); }
+            bool equal(const base_iteratorT& rhs) const { return m_current == rhs.m_current; }
 
         public:
-            iterator(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
+            base_iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
                 m_interval(interval),
                 m_currentRange(currentRange),
                 m_current((currentRange != interval.ranges_end()) ? currentRange->begin() : interval.ranges_back().end())
             {
             }
 
-            iterator& operator++()
+            base_iteratorT& operator++()
             {
                 if (m_currentRange == m_interval.ranges_end())
                     return *this;
 
-                typename range_type::iterator next = m_current;
                 const_ranges_iterator nextRange = m_currentRange;
                 ++nextRange;
-                ++next;
-                if ((nextRange != m_interval.ranges_end() && next != m_currentRange->end()) || //not the last range, skip end iter
-                    nextRange == m_interval.ranges_end())//last range, so iterate over all elements
-                {
-                    m_current = next;
-                }
-                else if (nextRange != m_interval.ranges_end()) //current range has finished and there exists one more range -> go to next range
+                ++m_current;
+                if (m_current == m_currentRange->end() && nextRange != m_interval.ranges_end()) //skip endIter if current range is not the last range
                 {
                     m_current = nextRange->begin();
                     m_currentRange = nextRange;
@@ -105,11 +116,84 @@ namespace tyti
 
                 return *this;
             }
+            base_iteratorT operator++(int)
+            {
+                base_iteratorT tmp(*this);
+                ++(*this);
+                return tmp;
+            }
 
-            bool operator==(const iterator& rhs) const { return equal(rhs); }
-            bool operator!=(const iterator& rhs) const { return !equal(rhs); }
+            bool operator==(const base_iteratorT& rhs) const { return equal(rhs); }
+            bool operator!=(const base_iteratorT& rhs) const { return !equal(rhs); }
             const typename range_type::iterator& operator*() const { return m_current; }
         };
+
+        template<>
+        class base_iteratorT<std::bidirectional_iterator_tag> : public base_iteratorT<std::forward_iterator_tag>
+        {
+        public:
+            base_iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
+                base_iteratorT<std::forward_iterator_tag>(interval, currentRange)
+            {}
+            base_iteratorT& operator--()
+            {
+                if (m_currentRange == m_interval.ranges_end())
+                    return *this;
+
+                const_ranges_iterator prevRange = m_currentRange;
+                --prevRange;
+                if (m_current == m_currentRange->begin())
+                {
+                    m_current = m_currentRange->end();
+                    if (prevRange != m_interval.ranges_begin()) // if its not the first range, continue
+                    {
+                        --m_current;
+                        m_currentRange = prevRange;
+                    }
+                }
+                else
+                    --m_current;
+
+                return *this;
+            }
+            base_iteratorT operator--(int)
+            {
+                base_iteratorT tmp(*this);
+                --(*this);
+                return tmp;
+            }
+        };
+
+        template<typename iter, bool isSpecT>
+        class iteratorT : public std::iterator<typename std::iterator_traits<iter>::iterator_category, iter>, public base_iteratorT<typename std::iterator_traits<iter>::iterator_category>
+        {
+        public:
+            iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
+                base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(interval, currentRange) {}
+            iteratorT(const base_iteratorT<typename std::iterator_traits<iter>::iterator_category>& it) : 
+                base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(it) {}
+        };
+        
+        //for plain types like int, unsigned int, etc.
+        template<typename iter>
+        class iteratorT<iter,true> : public std::iterator<std::bidirectional_iterator_tag, iter>, public base_iteratorT<std::bidirectional_iterator_tag>
+        {
+        public:
+            iteratorT(const range_union<range_type>& interval, const const_ranges_iterator& currentRange) :
+                base_iteratorT<std::bidirectional_iterator_tag>(interval, currentRange) {}
+            iteratorT(const base_iteratorT<std::bidirectional_iterator_tag>& it) :
+                base_iteratorT<std::bidirectional_iterator_tag>(it) {}
+        };
+
+        typedef iteratorT<
+            typename range_type::iterator, 
+            std::numeric_limits<typename range_type::iterator>::is_specialized
+        > iterator;
+
+
+        ///////////////////////////////////////////////////////////////////////////////
+        // operators
+        ///////////////////////////////////////////////////////////////////////////////
 
         range_union& operator+=(const range_type& rhs)
         {
