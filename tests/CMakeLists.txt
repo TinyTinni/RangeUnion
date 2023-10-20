@@ -6,6 +6,7 @@ set(SSU_Sources "range_union_test.cpp")
 
 include_directories(${Boost_INCLUDE_DIR} REQUIRED COMPONENTS unit_test_framework)
 
+set(CMAKE_CXX_STANDARD 17)
 add_executable(range_union_test "../range_union.hpp" ${SSU_Sources})
 target_link_libraries(range_union_test PRIVATE Boost::unit_test_framework)
 add_test(NAME range_union_test COMMAND range_union_test)
