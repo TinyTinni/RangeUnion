@@ -1,6 +1,6 @@
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
 
-find_package(Boost REQUIRED)
+find_package (Boost REQUIRED COMPONENTS unit_test_framework)
 
 set(SSU_Sources "range_union_test.cpp")
 
