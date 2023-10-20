@@ -1,4 +1,5 @@
 ## Introduction
+[![CMake](https://github.com/TinyTinni/RangeUnion/actions/workflows/cmake-build.yml/badge.svg)](https://github.com/TinyTinni/RangeUnion/actions/workflows/cmake-build.yml)  
 Imagine, you have several ranges and you want to iterate over each element defined by the rangers just one time.
 The ranges may be not disjunct.
 
