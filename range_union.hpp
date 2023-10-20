@@ -30,6 +30,146 @@ tyti::range_union<T, C> operator-(tyti::range_union<T, C> lhs, const T &rhs)
 
 namespace tyti
 {
+    namespace detail
+    {
+
+        template <typename range_type, typename container_type, typename tagT>
+        class base_iteratorT;
+
+        template <typename range_type, typename container_type>
+        class base_iteratorT<range_type, container_type, std::forward_iterator_tag>
+        {
+        public:
+            typedef typename container_type::const_iterator const_ranges_iterator;
+
+        protected:
+            const range_union<range_type, container_type> &m_interval;
+            const_ranges_iterator m_currentRange;
+            typename range_type::iterator m_current;
+
+            bool equal(const base_iteratorT &rhs) const { return m_current == rhs.m_current; }
+
+        public:
+            base_iteratorT(const range_union<range_type, container_type> &interval, const const_ranges_iterator &currentRange) : m_interval(interval),
+                                                                                                                                 m_currentRange(currentRange),
+                                                                                                                                 m_current((currentRange != interval.ranges_end()) ? currentRange->begin() : interval.ranges_back().end())
+            {
+            }
+
+            base_iteratorT &operator++()
+            {
+                if (m_currentRange == m_interval.ranges_end())
+                    return *this;
+
+                const_ranges_iterator nextRange = m_currentRange;
+                ++nextRange;
+                ++m_current;
+                if (m_current == m_currentRange->end() && nextRange != m_interval.ranges_end()) // skip endIter if current range is not the last range
+                {
+                    m_current = nextRange->begin();
+                    m_currentRange = nextRange;
+                }
+
+                return *this;
+            }
+            base_iteratorT operator++(int)
+            {
+                base_iteratorT tmp(*this);
+                ++(*this);
+                return tmp;
+            }
+
+            bool operator==(const base_iteratorT &rhs) const { return equal(rhs); }
+            bool operator!=(const base_iteratorT &rhs) const { return !equal(rhs); }
+            const typename range_type::iterator &operator*() const { return m_current; }
+        };
+
+        template <typename range_type, typename container_type>
+        class base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag> : public base_iteratorT<range_type, container_type, std::forward_iterator_tag>
+        {
+            typedef base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag> base;
+
+        public:
+            base_iteratorT(const range_union<range_type, container_type> &interval, const typename base::const_ranges_iterator &currentRange) : base_iteratorT<range_type, container_type, std::forward_iterator_tag>(interval, currentRange)
+            {
+            }
+            base_iteratorT &operator--()
+            {
+                if (base::m_currentRange == base::m_interval.ranges_end())
+                    return *this;
+
+                typename base::const_ranges_iterator prevRange = base::m_currentRange;
+                --prevRange;
+                if (base::m_current == base::m_currentRange->begin())
+                {
+                    base::m_current = base::m_currentRange->end();
+                    if (prevRange != base::m_interval.ranges_begin()) // if its not the first range, continue
+                    {
+                        --base::m_current;
+                        base::m_currentRange = prevRange;
+                    }
+                }
+                else
+                    --base::m_current;
+
+                return *this;
+            }
+            base_iteratorT operator--(int)
+            {
+                base_iteratorT tmp(*this);
+                --(*this);
+                return tmp;
+            }
+        };
+
+        // iterator
+        template <typename range_type, typename container_type, typename tagT>
+        class base_iteratorT : public base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag>
+        {
+            typedef base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag> base;
+
+        public:
+            base_iteratorT(const range_union<range_type, container_type> &interval, const typename base::const_ranges_iterator &currentRange) : base(interval, currentRange)
+            {
+            }
+            base_iteratorT(const base &it) : base(it)
+            {
+            }
+        };
+
+        template <typename range_type, typename container_type, typename iter, bool isSpecT>
+        class iteratorT : public base_iteratorT<range_type, container_type, typename std::iterator_traits<iter>::iterator_category>
+        {
+            typedef base_iteratorT<range_type, container_type, typename std::iterator_traits<iter>::iterator_category> base;
+
+        public:
+            typedef typename std::iterator_traits<iter>::iterator_category iterator_category;
+            typedef iter value_type;
+            typedef std::ptrdiff_t difference_type;
+            typedef value_type *pointer;
+            typedef value_type &reference;
+            iteratorT(const range_union<range_type, container_type> &interval, const typename base::const_ranges_iterator &currentRange) : base(interval, currentRange) {}
+            iteratorT(const base &it) : base(it) {}
+        };
+
+        // for plain types like int, unsigned int, etc.
+        template <typename range_type, typename container_type, typename iter>
+        class iteratorT<range_type, container_type, iter, true> : public base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag>
+        {
+            typedef base_iteratorT<range_type, container_type, std::bidirectional_iterator_tag> base;
+
+        public:
+            typedef std::bidirectional_iterator_tag iterator_category;
+            typedef iter value_type;
+            typedef std::ptrdiff_t difference_type;
+            typedef value_type *pointer;
+            typedef value_type &reference;
+            iteratorT(const range_union<range_type, container_type> &interval, const typename base::const_ranges_iterator &currentRange) : base(interval, currentRange) {}
+            iteratorT(const base &it) : base(it) {}
+        };
+
+    }
+
     /** \brief Simple Example of a range
      shows the requirement of a range
      */
@@ -78,135 +218,14 @@ namespace tyti
             }
         };
 
-        // iterator
-        template <typename tagT>
-        class base_iteratorT : public base_iteratorT<std::bidirectional_iterator_tag>
-        {
-        public:
-            base_iteratorT(const range_union<range_type> &interval, const const_ranges_iterator &currentRange) : base_iteratorT<std::bidirectional_iterator_tag>(interval, currentRange)
-            {
-            }
-            base_iteratorT(const base_iteratorT<std::bidirectional_iterator_tag> &it) : base_iteratorT<std::bidirectional_iterator_tag>(it)
-            {
-            }
-        };
-
-        template <>
-        class base_iteratorT<std::forward_iterator_tag>
-        {
-        protected:
-            const range_union<range_type> &m_interval;
-            const_ranges_iterator m_currentRange;
-            typename range_type::iterator m_current;
-
-            bool equal(const base_iteratorT &rhs) const { return m_current == rhs.m_current; }
-
-        public:
-            base_iteratorT(const range_union<range_type> &interval, const const_ranges_iterator &currentRange) : m_interval(interval),
-                                                                                                                 m_currentRange(currentRange),
-                                                                                                                 m_current((currentRange != interval.ranges_end()) ? currentRange->begin() : interval.ranges_back().end())
-            {
-            }
-
-            base_iteratorT &operator++()
-            {
-                if (m_currentRange == m_interval.ranges_end())
-                    return *this;
-
-                const_ranges_iterator nextRange = m_currentRange;
-                ++nextRange;
-                ++m_current;
-                if (m_current == m_currentRange->end() && nextRange != m_interval.ranges_end()) // skip endIter if current range is not the last range
-                {
-                    m_current = nextRange->begin();
-                    m_currentRange = nextRange;
-                }
-
-                return *this;
-            }
-            base_iteratorT operator++(int)
-            {
-                base_iteratorT tmp(*this);
-                ++(*this);
-                return tmp;
-            }
-
-            bool operator==(const base_iteratorT &rhs) const { return equal(rhs); }
-            bool operator!=(const base_iteratorT &rhs) const { return !equal(rhs); }
-            const typename range_type::iterator &operator*() const { return m_current; }
-        };
-
-        template <>
-        class base_iteratorT<std::bidirectional_iterator_tag> : public base_iteratorT<std::forward_iterator_tag>
-        {
-            typedef base_iteratorT<std::bidirectional_iterator_tag> base;
-
-        public:
-            base_iteratorT(const range_union<range_type> &interval, const const_ranges_iterator &currentRange) : base_iteratorT<std::forward_iterator_tag>(interval, currentRange)
-            {
-            }
-            base_iteratorT &operator--()
-            {
-                if (base::m_currentRange == base::m_interval.ranges_end())
-                    return *this;
-
-                const_ranges_iterator prevRange = base::m_currentRange;
-                --prevRange;
-                if (base::m_current == base::m_currentRange->begin())
-                {
-                    base::m_current = base::m_currentRange->end();
-                    if (prevRange != base::m_interval.ranges_begin()) // if its not the first range, continue
-                    {
-                        --base::m_current;
-                        base::m_currentRange = prevRange;
-                    }
-                }
-                else
-                    --base::m_current;
-
-                return *this;
-            }
-            base_iteratorT operator--(int)
-            {
-                base_iteratorT tmp(*this);
-                --(*this);
-                return tmp;
-            }
-        };
-
-        template <typename iter, bool isSpecT>
-        class iteratorT : public base_iteratorT<typename std::iterator_traits<iter>::iterator_category>
-        {
-        public:
-            typedef typename std::iterator_traits<iter>::iterator_category iterator_category;
-            typedef iter value_type;
-            typedef std::ptrdiff_t difference_type;
-            typedef value_type *pointer;
-            typedef value_type &reference;
-            iteratorT(const range_union<range_type> &interval, const const_ranges_iterator &currentRange) : base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(interval, currentRange) {}
-            iteratorT(const base_iteratorT<typename std::iterator_traits<iter>::iterator_category> &it) : base_iteratorT<typename std::iterator_traits<iter>::iterator_category>(it) {}
-        };
-
-        // for plain types like int, unsigned int, etc.
-        template <typename iter>
-        class iteratorT<iter, true> : public base_iteratorT<std::bidirectional_iterator_tag>
-        {
-        public:
-            typedef std::bidirectional_iterator_tag iterator_category;
-            typedef iter value_type;
-            typedef std::ptrdiff_t difference_type;
-            typedef value_type *pointer;
-            typedef value_type &reference;
-            iteratorT(const range_union<range_type> &interval, const const_ranges_iterator &currentRange) : base_iteratorT<std::bidirectional_iterator_tag>(interval, currentRange) {}
-            iteratorT(const base_iteratorT<std::bidirectional_iterator_tag> &it) : base_iteratorT<std::bidirectional_iterator_tag>(it) {}
-        };
-
     public:
         ///////////////////////////////////////////////////////////////////////////////
         // public interface
         ///////////////////////////////////////////////////////////////////////////////
 
-        typedef iteratorT<
+        typedef detail::iteratorT<
+            range_type,
+            container_type,
             typename range_type::iterator,
             std::numeric_limits<typename range_type::iterator>::is_specialized>
             iterator;
